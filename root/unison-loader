@@ -1,0 +1,59 @@
+#!/bin/bash
+
+set -ueo pipefail
+
+NAME=""
+DIR=""
+pgrep sshd >/dev/null || /usr/sbin/sshd
+GWDEV=$(ip -oneline route list 0/0 | awk '{print $NF}')
+MYIP=$(ip -family inet -oneline addr show $GWDEV | awk '{gsub("/.*", "", $4); print $4}')
+ETCDHOST=$(ip -oneline route list 0/0 | awk '{print $3}')
+
+while [ $# -gt 0 ]; do
+	case "$1" in
+		--name)
+			shift
+			NAME="$1"
+		;;
+		--dir)
+			shift
+			DIR="$1"
+		;;
+		--etcdhost)
+			shift
+			ETCDHOST="$1"
+		;;
+		--debug)
+			set -x
+		;;
+		*)
+			echo "Unknown option $1"
+		;;
+	esac
+	shift
+done
+
+
+mkdir -p "$DIR"
+
+chown -R root: ~
+chmod 600 ~/.ssh/config
+chmod 700 ~/.ssh
+chmod 700 ~
+
+# TODO generate our ssh key
+# TODO store it in etcd
+
+while true; do
+	# Get our peers
+	/etcdctl -C http://$ETCDHOST:4001 ls /unison/$NAME | while read peer; do
+		echo "$peer" | grep -vq " " || continue
+		pgrep unison >/dev/null || continue
+		ip="$(/etcdctl -C http://$ETCDHOST:4001 get $peer)"
+		[ "$ip" = "$MYIP" ] && continue
+		unison -silent -batch -numericids -owner -group -times -prefer newer $DIR ssh://$ip/$DIR || \
+			echo "Failed: unison -silent -batch $DIR ssh://$ip/$DIR"
+	done || true
+	/etcdctl -C http://$ETCDHOST:4001 set --ttl 30 "/unison/$NAME/$HOSTNAME" "$MYIP" >dev/null || echo "Can't set $ETCDHOST:/unison/$NAME/$HOSTNAME to $MYIP"
+	sleep 2
+done
