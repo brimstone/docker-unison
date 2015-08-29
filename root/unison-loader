@@ -14,7 +14,6 @@ check_connection() {
 NAME=""
 DIR=""
 GWDEV=$(ip -oneline route list 0/0 | awk '{print $NF}')
-MYIP=$(ip -family inet -oneline addr show $GWDEV | awk '{gsub("/.*", "", $4); print $4}')
 ETCDHOST=$(ip -oneline route list 0/0 | awk '{print $3}')
 PORT=1024
 
@@ -39,12 +38,18 @@ while [ $# -gt 0 ]; do
 		--debug)
 			set -x
 		;;
+		--gwdev)
+			shift
+			GWDEV="$1"
+		;;
 		*)
 			echo "Unknown option $1"
 		;;
 	esac
 	shift
 done
+
+MYIP=$(ip -family inet -oneline addr show $GWDEV | awk '{gsub("/.*", "", $4); print $4}')
 
 if [ -z "$NAME" ]; then
 	echo "--name is required"
