@@ -10,7 +10,7 @@ version: "3"
 
 services:
   unison:
-    image: unison
+    image: brimstone/unison
     networks:
     - unison
     volumes:
@@ -39,4 +39,3 @@ networks:
 Where:
 - SERVICE is the name of the service
 - DIR is the directory to keep in sync
-
