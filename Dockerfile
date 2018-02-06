@@ -1,13 +1,12 @@
-FROM brimstone/ubuntu:14.04
+FROM alpine:edge
 
-ENV HOME /root
+ENV HOME=/root \
+    DIR=/home \
+    SERVICE=unison
 
-RUN apt-get update && \
-    apt-get install -y unison && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists
+RUN apk -U add unison bind-tools
 
-ADD root /
+COPY loader /
 
-ENTRYPOINT [ "/unison-loader" ]
+ENTRYPOINT [ "/loader" ]
 

@@ -1,0 +1,45 @@
+#!/bin/sh
+set -ue
+echo "I am $(hostname -i)"
+
+while true; do
+	num="$(dig +short tasks.$SERVICE | sort | awk "BEGIN{i=0} { if(\$0 == \"$(hostname -i)\") {print i; exit} else {i++}}")"
+	if [ -z "$num" ]; then
+		sleep 1
+		continue
+	fi
+	echo "I am node $num"
+
+	if [ "$num" -gt 0 ]; then
+		master="$(dig +short tasks.$SERVICE | sort | head -n 1)"
+		port=$(( 5000 + $num ))
+		echo "Connecting to master $master:$port"
+		unison /$DIR socket://$master:$port/$DIR -auto -batch -repeat watch || true
+		sleep 2
+		continue
+	fi
+
+	count="$(dig +short tasks.$SERVICE | wc -l)"
+	if [ "$count" -gt 1 ]; then
+		i=1
+		touch /tmp/unison.lock
+		while [ $i -lt $count ]; do
+			(
+				while [ -e /tmp/unison.lock ]; do
+					echo "Starting server $i"
+					unison -socket $(( 5000 + $i ))
+					echo "Unison exited"
+				done
+			) &
+			i=$(( $i + 1 ))
+		done
+	fi
+
+	# Watch for number of nodes to change
+	until [ $count != "$(dig +short tasks.$SERVICE | wc -l)" ]; do
+		sleep 1
+	done
+	rm -f /tmp/unison.lock
+	killall unison || true
+	wait
+done

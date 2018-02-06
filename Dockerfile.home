@@ -1,5 +1,0 @@
-FROM registry:5000/brimstone/unison:base
-
-CMD [ "--name","home", "--dir", "home" ]
-
-VOLUME /home
